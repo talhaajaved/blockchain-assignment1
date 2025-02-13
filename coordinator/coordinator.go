@@ -2,6 +2,7 @@
 package coordinator
 
 import (
+	"crypto/tls"
 	"errors"
 	"log"
 	"net"
@@ -14,13 +15,18 @@ import (
 // Coordinator receives client requests and delegates them to workers.
 type Coordinator struct {
 	WorkerManager *WorkerManager
+	UseTLS        bool
+	TLSConfig     *tls.Config
 }
 
 // NewCoordinator creates a new Coordinator with the given worker addresses.
-func NewCoordinator(workerAddresses []string) *Coordinator {
+// When useTLS is true, tlsConfig is used for dialing workers.
+func NewCoordinator(workerAddresses []string, useTLS bool, tlsConfig *tls.Config) *Coordinator {
 	wm := NewWorkerManager(workerAddresses)
 	return &Coordinator{
 		WorkerManager: wm,
+		UseTLS:        useTLS,
+		TLSConfig:     tlsConfig,
 	}
 }
 
@@ -45,9 +51,14 @@ func (c *Coordinator) HandleRequest(req *shared.MatrixOperationRequest, resp *sh
 		log.Printf("Coordinator: Selected worker at %s", worker.Address)
 		worker.increment()
 
-		// Use DialTimeout to avoid hanging on an unreachable worker.
-		log.Printf("Coordinator: Dialing worker at %s", worker.Address)
-		conn, dialErr := net.DialTimeout("tcp", worker.Address, 3*time.Second)
+		var conn net.Conn
+		var dialErr error
+		if c.UseTLS {
+			// Use tls.DialWithDialer to set a timeout when dialing a TLS worker.
+			conn, dialErr = tls.DialWithDialer(&net.Dialer{Timeout: 3 * time.Second}, "tcp", worker.Address, c.TLSConfig)
+		} else {
+			conn, dialErr = net.DialTimeout("tcp", worker.Address, 3*time.Second)
+		}
 		if dialErr != nil {
 			log.Printf("Coordinator: Error dialing worker at %s: %v", worker.Address, dialErr)
 			worker.decrement()

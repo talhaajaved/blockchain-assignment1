@@ -19,14 +19,31 @@ func main() {
 	flag.BoolVar(&useTLS, "tls", false, "Use TLS for secure connection")
 	flag.Parse()
 
-	// Define the worker addresses. Adjust these as needed.
+	var tlsConfig *tls.Config
+	if useTLS {
+		certFile := "certs/server.crt"
+		keyFile := "certs/server.key"
+		// Load the TLS certificate for both listening and dialing.
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			log.Fatalf("Coordinator: Failed to load key pair: %v", err)
+		}
+		// For self-signed certificates, you may want to disable verification.
+		tlsConfig = &tls.Config{
+			Certificates:       []tls.Certificate{cert},
+			InsecureSkipVerify: true,
+		}
+	}
+
+	// Define the worker addresses.
 	workerAddresses := []string{
 		"localhost:9000",
 		"localhost:9001",
 		"localhost:9002",
 	}
 
-	coord := coordinator.NewCoordinator(workerAddresses)
+	// Create the Coordinator instance, passing the TLS configuration.
+	coord := coordinator.NewCoordinator(workerAddresses, useTLS, tlsConfig)
 	if err := rpc.Register(coord); err != nil {
 		log.Fatalf("Coordinator: Error registering RPC service: %v", err)
 	}
@@ -36,14 +53,7 @@ func main() {
 	var err error
 
 	if useTLS {
-		certFile := "certs/server.crt"
-		keyFile := "certs/server.key"
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			log.Fatalf("Coordinator: Failed to load key pair: %v", err)
-		}
-		config := &tls.Config{Certificates: []tls.Certificate{cert}}
-		listener, err = tls.Listen("tcp", addr, config)
+		listener, err = tls.Listen("tcp", addr, tlsConfig)
 		if err != nil {
 			log.Fatalf("Coordinator: Failed to listen with TLS: %v", err)
 		}

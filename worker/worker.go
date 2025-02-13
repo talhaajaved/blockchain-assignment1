@@ -4,6 +4,7 @@ package worker
 import (
 	"errors"
 	"log"
+	"time"
 
 	"github.com/talhaajaved/blockchain-assignment1/shared"
 )
@@ -16,6 +17,7 @@ func (w *WorkerService) Compute(req *shared.MatrixOperationRequest, resp *shared
 	log.Printf("Worker: Received compute request: %+v", req)
 	switch req.Operation {
 	case shared.Add:
+		time.Sleep(10 * time.Second)
 		result, err := addMatrices(req.MatrixA, req.MatrixB)
 		if err != nil {
 			resp.Error = err.Error()

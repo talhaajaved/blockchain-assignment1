@@ -1,4 +1,3 @@
-// cmd/client/main.go
 package main
 
 import (
@@ -50,6 +49,7 @@ func main() {
 	var client *rpc.Client
 	var err error
 	if useTLS {
+		// For self-signed certificates, we disable certificate verification.
 		config := &tls.Config{InsecureSkipVerify: true}
 		conn, err := tls.Dial("tcp", serverAddr, config)
 		if err != nil {

@@ -30,18 +30,18 @@ func (wm *WorkerManager) getLeastBusyWorker(exclude map[string]bool) *Worker {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 	var selected *Worker
+	var selectedJobs int
 	for _, w := range wm.Workers {
 		if exclude[w.Address] {
 			continue
 		}
+		// Lock each worker briefly to read its ActiveJobs and then unlock.
 		w.mu.Lock()
-		if selected == nil || w.ActiveJobs < selected.ActiveJobs {
-			if selected != nil {
-				selected.mu.Unlock()
-			}
+		jobs := w.ActiveJobs
+		w.mu.Unlock()
+		if selected == nil || jobs < selectedJobs {
 			selected = w
-		} else {
-			w.mu.Unlock()
+			selectedJobs = jobs
 		}
 	}
 	return selected
